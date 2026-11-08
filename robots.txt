@@ -1,0 +1,5 @@
+# GreenCorner – robots.txt
+User-agent: *
+Allow: /
+
+Sitemap: https://pooja-satpathy.github.io/greencorner/sitemap.xml
