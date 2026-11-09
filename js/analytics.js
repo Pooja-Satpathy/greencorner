@@ -15,8 +15,12 @@
   /** Paste your GA4 Measurement ID here, e.g. 'G-AB12CD34EF'. Leave empty to disable. */
   var GA_MEASUREMENT_ID = '';
 
-  /** Log events to the console while developing. Set to false for production. */
-  var DEBUG = true;
+  /**
+   * true = send events to GA4 DebugView (for testing only; GA4 may filter
+   * debug traffic out of standard reports). Keep false on the live site.
+   * Events are always printed in the browser console while no ID is set.
+   */
+  var DEBUG = false;
 
   var isValidId = /^G-[A-Z0-9]{4,}$/.test(GA_MEASUREMENT_ID);
 
@@ -43,7 +47,7 @@
   /**
    * Track an event. Safe to call whether or not GA4 is configured.
    * Uses GA4 recommended event names where they exist (view_item,
-   * add_to_cart, begin_checkout, generate_lead, search ...) so that the
+   * add_to_wishlist, select_item, generate_lead, search ...) so that the
    * standard GA4 e-commerce reports work without extra setup.
    * @param {string} name   GA4 event name (snake_case, max 40 chars)
    * @param {Object} params Event parameters
@@ -56,7 +60,7 @@
       // Keep a GTM-friendly record even without gtag.js.
       window.dataLayer.push({ event: name, params: params });
     }
-    if (DEBUG && window.console) {
+    if ((DEBUG || !isValidId) && window.console) {
       console.info('[GA4 event]', name, params, isValidId ? '' : '(not sent – no Measurement ID set)');
     }
   }
@@ -68,8 +72,6 @@
       item_id: product.id,
       item_name: product.name,
       item_category: product.categoryName || product.category,
-      item_brand: 'GreenCorner',
-      price: product.price,
       quantity: quantity || 1
     };
   }

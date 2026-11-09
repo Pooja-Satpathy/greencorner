@@ -2,7 +2,7 @@
    GreenCorner – main.js
    Shared UI helpers + page controllers (home, shop, product, contact).
    Load order on every page:
-     analytics.js → products.js → main.js → cart.js → (page-specific script)
+     analytics.js → products.js → main.js → plant-list.js → (page-specific script)
    ========================================================================== */
 (function (window, document) {
   'use strict';
@@ -72,43 +72,33 @@
     setTimeout(remove, opts.duration || 3200);
   }
 
-  /** Percentage saved versus MRP. */
-  function discountPct(p) {
-    return p.mrp && p.mrp > p.price ? Math.round(((p.mrp - p.price) / p.mrp) * 100) : 0;
-  }
-
   /* ------------------------------------------------------------------
      2. Product card (used on home, shop, product, finder & guide pages)
      ------------------------------------------------------------------ */
   function productCard(p, opts = {}) {
-    const pct = discountPct(p);
     const cat = GC.getCategory(p.category);
     const listName = opts.listName || 'Product list';
     const extra = opts.extraHtml || '';
-    const topBadge = opts.matchLabel
-      ? '<span class="match-badge">' + esc(opts.matchLabel) + '</span>'
-      : (pct >= 18 ? '<span class="badge badge-sale">' + pct + '% off</span>' : '');
+    const stores = GC.storeLinks(p).map((s) => s.name);
     return (
       '<article class="product-card">' +
         '<a class="product-card__media" href="' + productUrl(p.id) + '" data-product-link="' + esc(p.id) + '" data-list="' + esc(listName) + '" tabindex="-1" aria-hidden="true">' +
           '<img src="' + GC.imageUrl(p.photoId, 600) + '" srcset="' + GC.imageUrl(p.photoId, 400) + ' 400w, ' + GC.imageUrl(p.photoId, 600) + ' 600w, ' + GC.imageUrl(p.photoId, 900) + ' 900w" sizes="(max-width: 600px) 50vw, (max-width: 1024px) 33vw, 300px" alt="' + esc(p.alt) + '" loading="lazy" decoding="async" width="600" height="660">' +
           '<span class="product-card__badges">' +
             (p.badge ? '<span class="badge">' + esc(p.badge) + '</span>' : '<span></span>') +
-            topBadge +
+            (opts.matchLabel ? '<span class="match-badge">' + esc(opts.matchLabel) + '</span>' : '') +
           '</span>' +
-          '<span class="product-card__quick">View details</span>' +
+          '<span class="product-card__quick">Care info &amp; where to buy</span>' +
         '</a>' +
         '<div class="product-card__body">' +
           '<p class="product-card__cat">' + esc(cat ? cat.name : '') + '</p>' +
           '<h3 class="product-card__title"><a href="' + productUrl(p.id) + '" data-product-link="' + esc(p.id) + '" data-list="' + esc(listName) + '">' + esc(p.name) + '</a></h3>' +
           '<p class="product-card__desc">' + esc(p.short) + '</p>' +
           extra +
-          '<div class="price-row"><span class="price">' + GC.formatPrice(p.price) + '</span>' +
-            (p.mrp > p.price ? '<s class="mrp" aria-label="MRP ' + GC.formatPrice(p.mrp) + '">' + GC.formatPrice(p.mrp) + '</s><span class="save">Save ' + pct + '%</span>' : '') +
-          '</div>' +
+          '<p class="card-stores" title="' + esc(stores.join(', ')) + '">' + icon('bag') + '<span>Compare at ' + stores.length + ' stores</span></p>' +
           '<div class="product-card__actions">' +
-            '<button class="btn btn-primary" type="button" data-add-to-cart="' + esc(p.id) + '" aria-label="Add ' + esc(p.name) + ' to cart">' + icon('bag') + '<span>Add to Cart</span></button>' +
-            '<a class="btn btn-outline" href="' + productUrl(p.id) + '" data-product-link="' + esc(p.id) + '" data-list="' + esc(listName) + '" aria-label="View details of ' + esc(p.name) + '">Details</a>' +
+            '<a class="btn btn-primary" href="' + productUrl(p.id) + '#where-to-buy" data-product-link="' + esc(p.id) + '" data-list="' + esc(listName) + '" aria-label="Where to buy ' + esc(p.name) + '">Where to buy</a>' +
+            '<button class="btn btn-outline btn-save" type="button" data-save-item="' + esc(p.id) + '" aria-pressed="false" aria-label="Save ' + esc(p.name) + ' to my plant list">' + icon('heart') + '<span>Save</span></button>' +
           '</div>' +
         '</div>' +
       '</article>'
@@ -127,7 +117,7 @@
     }
   }
 
-  GC.ui = { $, $$, esc, icon, debounce, toast, productCard, renderProducts, productUrl, guideUrl, shopUrl, discountPct };
+  GC.ui = { $, $$, esc, icon, debounce, toast, productCard, renderProducts, productUrl, guideUrl, shopUrl };
 
   /* ------------------------------------------------------------------
      3. Global UI: header, mobile nav, search, reveal, image fallback
@@ -204,9 +194,18 @@
     }, true);
   }
 
-  /** Track product link clicks as GA4 select_item. */
+  /** Track product link clicks as GA4 select_item, and store links as where_to_buy_click. */
   function initSelectItemTracking() {
     document.addEventListener('click', (e) => {
+      const store = e.target.closest('[data-store-link]');
+      if (store) {
+        const item = GC.getProduct(store.getAttribute('data-item'));
+        A.track('where_to_buy_click', {
+          store: store.getAttribute('data-store-link'), item_id: item ? item.id : '', item_name: item ? item.name : '',
+          link_location: store.getAttribute('data-location') || PAGE, link_url: store.href, outbound: true
+        });
+        return;
+      }
       const link = e.target.closest('[data-product-link]');
       if (!link) return;
       const p = GC.getProduct(link.getAttribute('data-product-link'));
@@ -240,7 +239,7 @@
       el.innerHTML = list.map((p) =>
         '<a class="mini-product" href="' + productUrl(p.id) + '" data-product-link="' + esc(p.id) + '" data-list="Guide sidebar">' +
           '<img src="' + GC.imageUrl(p.photoId, 160) + '" alt="' + esc(p.alt) + '" loading="lazy" width="64" height="64">' +
-          '<div><strong>' + esc(p.name) + '</strong><span>' + GC.formatPrice(p.price) + '</span></div>' +
+          '<div><strong>' + esc(p.name) + '</strong><span>Where to buy →</span></div>' +
         '</a>').join('');
     });
   }
@@ -368,18 +367,19 @@
 
     // Build category chips with product counts.
     const count = (cat) => GC.products.filter((p) => cat === 'all' || p.category === cat).length;
-    chips.innerHTML = [{ id: 'all', name: 'All products' }].concat(GC.categories).map((c) =>
+    chips.innerHTML = [{ id: 'all', name: 'All picks' }].concat(GC.categories).map((c) =>
       '<button type="button" class="chip" data-category="' + c.id + '" aria-pressed="' + (state.category === c.id) + '">' +
         esc(c.name) + ' <span class="chip-count">' + count(c.id) + '</span></button>').join('');
 
     const trackSearch = debounce((term) => { if (term.length >= 2) A.track('search', { search_term: term }); }, 900);
 
     function sortList(list) {
+      const care = (p) => (p.finder ? { low: 1, medium: 2, high: 3 }[p.finder.maintenance] : 1.5);
+      const catIndex = (p) => GC.categories.findIndex((c) => c.id === p.category);
       const by = {
-        'price-asc': (a, b) => a.price - b.price,
-        'price-desc': (a, b) => b.price - a.price,
+        'easy': (a, b) => care(a) - care(b) || a.order - b.order,
+        'category': (a, b) => catIndex(a) - catIndex(b) || a.order - b.order,
         'name-asc': (a, b) => a.name.localeCompare(b.name),
-        'discount': (a, b) => discountPct(b) - discountPct(a),
         'featured': (a, b) => (b.featured ? 1 : 0) - (a.featured ? 1 : 0) || a.order - b.order
       };
       return list.slice().sort(by[state.sort] || by.featured);
@@ -402,15 +402,15 @@
 
       $$('.chip', chips).forEach((c) => c.setAttribute('aria-pressed', String(c.dataset.category === state.category)));
       headingEl.textContent = cat ? cat.name : 'All plants & gardening supplies';
-      introEl.textContent = cat ? cat.blurb : 'Browse our full sample range of plants, planters, seeds, soil and tools.';
-      countEl.textContent = list.length + (list.length === 1 ? ' product' : ' products') + (state.q ? ' for “' + state.q + '”' : '');
-      document.title = (cat ? cat.name + ' – Buy Online' : 'Shop Indoor Plants, Pots & Gardening Tools Online') + ' | GreenCorner';
+      introEl.textContent = cat ? cat.blurb + ' Compare where to buy each one.' : 'Our curated plants, planters, seeds, soil and tools — each with links to compare where to buy.';
+      countEl.textContent = list.length + (list.length === 1 ? ' pick' : ' picks') + (state.q ? ' for “' + state.q + '”' : '');
+      document.title = (cat ? 'Where to Buy ' + cat.name + ' Online in India' : 'Where to Buy Plants Online in India: Plants, Pots & Tools') + ' | GreenCorner';
 
       if (!list.length) {
-        grid.innerHTML = '<div class="empty-state">' + icon('sprout') + '<h3>No products found</h3><p class="muted">Try a different search term or browse all categories.</p><button type="button" class="btn btn-outline" id="clear-filters">Clear filters</button></div>';
+        grid.innerHTML = '<div class="empty-state">' + icon('sprout') + '<h3>No picks found</h3><p class="muted">Try a different search term or browse all categories.</p><button type="button" class="btn btn-outline" id="clear-filters">Clear filters</button></div>';
         $('#clear-filters').addEventListener('click', () => { state.q = ''; state.category = 'all'; search.value = ''; render(); search.focus(); });
       } else {
-        renderProducts(grid, list, { listName: 'Shop – ' + (cat ? cat.name : 'All products') });
+        renderProducts(grid, list, { listName: 'Where to buy – ' + (cat ? cat.name : 'All picks') });
       }
       updateUrl();
     }
@@ -428,7 +428,24 @@
     render();
   };
 
-  /** Product details: render from ?id=, update SEO tags, related items. */
+  /** Buying checklists shown on product pages, by type of pick. */
+  const BUYING_TIPS = {
+    plant: [
+      'Compare the plant height and pot size in each listing — photos often show larger plants.',
+      'Look for firm stems and healthy leaves without yellow patches, spots or pests in photos and reviews.',
+      'Read recent reviews about packaging and how plants arrived, not just the star rating.',
+      'Check delivery to your pin code and the store’s policy for plants that arrive damaged.',
+      'Let a new plant settle for one to two weeks before repotting it.'
+    ],
+    supply: [
+      'Check dimensions and material in the listing so it fits your space and plants.',
+      'For pots and planters, make sure there is a drainage hole.',
+      'Compare price per unit or per kg between pack sizes.',
+      'Read recent reviews for quality and durability, and check the return policy.'
+    ]
+  };
+
+  /** Product details: render from ?id=, update SEO tags, where-to-buy links, related picks. */
   pages.product = function () {
     const root = $('#product-root');
     const id = new URLSearchParams(window.location.search).get('id');
@@ -438,7 +455,7 @@
     if (!p) {
       root.hidden = true;
       notFound.hidden = false;
-      document.title = 'Product not found | GreenCorner';
+      document.title = 'Pick not found | GreenCorner';
       const robots = document.createElement('meta');
       robots.name = 'robots'; robots.content = 'noindex';
       document.head.appendChild(robots);
@@ -446,13 +463,13 @@
     }
 
     const cat = GC.getCategory(p.category);
-    const pct = discountPct(p);
     const isPlant = !!p.sunlight;
+    const links = GC.storeLinks(p);
     const url = GC.SITE_URL + 'product.html?id=' + encodeURIComponent(p.id);
 
-    // --- SEO: title, description, canonical, Open Graph, structured data ---
-    const title = p.name + ' – Buy Online at ' + GC.formatPrice(p.price) + ' | GreenCorner';
-    const desc = p.short + ' ' + (isPlant ? 'Sunlight: ' + p.sunlight.split('.')[0] + '. ' : '') + 'Sample product on GreenCorner.';
+    // --- SEO: title, description, canonical, Open Graph, breadcrumb structured data ---
+    const title = p.name + (isPlant ? ' – Care Guide & Where to Buy in India' : ' – Buying Tips & Where to Buy in India') + ' | GreenCorner';
+    const desc = p.short + ' ' + (isPlant ? 'Sunlight: ' + p.sunlight.split('.')[0] + '. ' : '') + 'Compare where to buy online in India.';
     document.title = title;
     const setMeta = (sel, attr, val) => { const m = $(sel); if (m) m.setAttribute(attr, val); };
     setMeta('meta[name="description"]', 'content', desc);
@@ -466,32 +483,36 @@
     setMeta('meta[name="twitter:image"]', 'content', GC.imageUrl(p.photoId, 1200));
     const ld = document.createElement('script');
     ld.type = 'application/ld+json';
-    ld.textContent = JSON.stringify([{
-      '@context': 'https://schema.org', '@type': 'Product', name: p.name, sku: p.id,
-      image: [GC.imageUrl(p.photoId, 1200)], description: p.description,
-      brand: { '@type': 'Brand', name: 'GreenCorner' }, category: cat.name,
-      offers: { '@type': 'Offer', url: url, priceCurrency: 'INR', price: p.price, availability: 'https://schema.org/InStock', itemCondition: 'https://schema.org/NewCondition' }
-    }, {
+    ld.textContent = JSON.stringify({
       '@context': 'https://schema.org', '@type': 'BreadcrumbList', itemListElement: [
         { '@type': 'ListItem', position: 1, name: 'Home', item: GC.SITE_URL },
-        { '@type': 'ListItem', position: 2, name: 'Shop', item: GC.SITE_URL + 'shop.html' },
+        { '@type': 'ListItem', position: 2, name: 'Where to Buy', item: GC.SITE_URL + 'shop.html' },
         { '@type': 'ListItem', position: 3, name: cat.name, item: GC.SITE_URL + 'shop.html?category=' + cat.id },
         { '@type': 'ListItem', position: 4, name: p.name, item: url }
       ]
-    }]);
+    });
     document.head.appendChild(ld);
 
     // --- Breadcrumb ---
     $('#product-breadcrumb').innerHTML =
-      '<ol><li><a href="index.html">Home</a></li><li><a href="shop.html">Shop</a></li>' +
+      '<ol><li><a href="index.html">Home</a></li><li><a href="shop.html">Where to Buy</a></li>' +
       '<li><a href="' + shopUrl(cat.id) + '">' + esc(cat.name) + '</a></li><li><span aria-current="page">' + esc(p.name) + '</span></li></ol>';
 
     // --- Quick facts ---
     const facts = isPlant
-      ? [['sun', 'Sunlight', p.sunlight.split('.')[0]], ['droplet', 'Watering', p.watering.split('.')[0]], ['ruler', 'Size', p.size], ['leaf', 'Care level', p.finder ? ({ low: 'Easy', medium: 'Moderate', high: 'Hands-on' })[p.finder.maintenance] : 'Easy']]
-      : [['ruler', 'Size', p.size]].concat(p.specs.slice(0, 3).map((s) => ['info', s[0], s[1]]));
+      ? [['sun', 'Sunlight', p.sunlight.split('.')[0]], ['droplet', 'Watering', p.watering.split('.')[0]], ['ruler', 'Typical size', p.size.replace(/^Commonly sold around /, '')], ['leaf', 'Care level', p.finder ? ({ low: 'Easy', medium: 'Moderate', high: 'Hands-on' })[p.finder.maintenance] : 'Easy']]
+      : [['ruler', 'Size guide', p.size]].concat(p.specs.slice(0, 3).map((s) => ['info', s[0], s[1]]));
 
     const guides = (p.guides || []).map((slug) => GC.getGuide(slug)).filter(Boolean);
+    const tips = BUYING_TIPS[isPlant ? 'plant' : 'supply'];
+
+    const storeButtons = links.map((s) =>
+      '<a class="store-link" href="' + esc(s.url) + '" target="_blank" rel="noopener" data-store-link="' + s.id + '" data-item="' + esc(p.id) + '" data-location="product_page">' +
+        '<span class="store-name">' + esc(s.name) + '</span>' +
+        '<span class="store-note">' + esc(s.note) + '</span>' +
+        '<span class="store-cta">Search “' + esc(p.search) + '” ' + icon('external') + '</span>' +
+        '<span class="visually-hidden"> (opens in a new tab)</span>' +
+      '</a>').join('');
 
     root.innerHTML =
       '<div class="product-detail">' +
@@ -503,50 +524,42 @@
           '<a class="product-cat" href="' + shopUrl(cat.id) + '">' + esc(cat.name) + '</a>' +
           '<h1>' + esc(p.name) + '</h1>' +
           '<p class="short">' + esc(p.short) + '</p>' +
-          '<div class="product-price"><span class="price">' + GC.formatPrice(p.price) + '</span>' +
-            (pct ? '<s class="mrp">MRP ' + GC.formatPrice(p.mrp) + '</s><span class="save">Save ' + pct + '%</span>' : '') + '</div>' +
-          '<p class="tax-note">Inclusive of all taxes · <span class="sample-label">Sample product &amp; price</span></p>' +
-          '<div class="buy-row">' +
-            '<div class="qty-stepper" role="group" aria-label="Quantity">' +
-              '<button type="button" data-qty-step="-1" aria-label="Decrease quantity">−</button>' +
-              '<input id="product-qty" type="number" inputmode="numeric" min="1" max="20" value="1" aria-label="Quantity">' +
-              '<button type="button" data-qty-step="1" aria-label="Increase quantity">+</button>' +
-            '</div>' +
-            '<button class="btn btn-primary btn-lg" type="button" data-add-to-cart="' + esc(p.id) + '" data-qty-from="#product-qty">' + icon('bag') + '<span>Add to Cart</span></button>' +
-          '</div>' +
-          '<ul class="assurance"><li>' + icon('truck') + 'Free delivery above ₹999</li><li>' + icon('package') + 'Plastic-free packaging</li><li>' + icon('book') + 'Care card included</li></ul>' +
+          '<section class="where-to-buy" id="where-to-buy" aria-labelledby="wtb-h">' +
+            '<h2 id="wtb-h">Where to buy</h2>' +
+            '<p class="small muted">Compare price, size and delivery at these Indian online stores. Each link opens the store’s search results.</p>' +
+            '<div class="store-grid">' + storeButtons + '</div>' +
+            '<button class="btn btn-outline btn-save btn-block" type="button" data-save-item="' + esc(p.id) + '" aria-pressed="false">' + icon('heart') + '<span>Save to my plant list</span></button>' +
+            '<p class="disclosure">' + icon('info') + '<span>GreenCorner doesn’t sell products and isn’t affiliated with these stores — we earn no commission. Prices, stock and delivery are set by each store.</span></p>' +
+          '</section>' +
           '<div class="quick-facts">' + facts.map((f) => '<div class="quick-fact">' + icon(f[0]) + '<div><strong>' + esc(f[1]) + '</strong><span>' + esc(f[2]) + '</span></div></div>').join('') + '</div>' +
-          '<section class="detail-section" aria-labelledby="about-h"><h2 id="about-h">Product description</h2><p>' + esc(p.description) + '</p></section>' +
+          '<section class="detail-section" aria-labelledby="about-h"><h2 id="about-h">' + (isPlant ? 'About this plant' : 'About this pick') + '</h2><p>' + esc(p.description) + '</p></section>' +
           (isPlant
             ? '<section class="detail-section" aria-labelledby="sun-h"><h2 id="sun-h">Sunlight requirements</h2><p>' + esc(p.sunlight) + '</p></section>' +
               '<section class="detail-section" aria-labelledby="water-h"><h2 id="water-h">Watering frequency</h2><p>' + esc(p.watering) + '</p><p class="small muted">Watering needs change with season, pot size and room conditions — always check the soil first. Read our guide: <a href="' + guideUrl('how-often-to-water-indoor-plants') + '">how often should indoor plants be watered?</a></p></section>' +
               '<section class="detail-section" aria-labelledby="care-h"><h2 id="care-h">Plant care instructions</h2><ul class="care-list">' + p.care.map((c) => '<li>' + icon('check') + '<span>' + esc(c) + '</span></li>').join('') + '</ul>' +
                 '<p class="mt-1"><a class="link-arrow" href="care-planner.html?plant=' + encodeURIComponent(p.id) + '">Track this plant in the Plant Care Planner ' + icon('arrow') + '</a></p></section>' +
               (p.pet ? '<section class="detail-section" aria-labelledby="pet-h"><h2 id="pet-h">Pets &amp; children</h2><p class="pet-note">' + icon('paw') + '<span>' + esc(p.pet) + '</span></p></section>' : '')
-            : '<section class="detail-section" aria-labelledby="spec-h"><h2 id="spec-h">Specifications &amp; usage</h2><table class="spec-table"><tbody>' +
-              '<tr><th scope="row">Size</th><td>' + esc(p.size) + '</td></tr>' +
+            : '<section class="detail-section" aria-labelledby="spec-h"><h2 id="spec-h">What to look for</h2><table class="spec-table"><tbody>' +
+              '<tr><th scope="row">Size guide</th><td>' + esc(p.size) + '</td></tr>' +
               p.specs.map((s) => '<tr><th scope="row">' + esc(s[0]) + '</th><td>' + esc(s[1]) + '</td></tr>').join('') + '</tbody></table></section>') +
+          '<section class="detail-section" aria-labelledby="tips-h"><h2 id="tips-h">Tips for buying online</h2><ul class="care-list">' + tips.map((t) => '<li>' + icon('checkCircle') + '<span>' + esc(t) + '</span></li>').join('') + '</ul></section>' +
           (guides.length ? '<section class="detail-section" aria-labelledby="guides-h"><h2 id="guides-h">Helpful plant care guides</h2><ul class="guide-links">' +
             guides.map((g) => '<li><a href="' + guideUrl(g.slug) + '">' + icon('book') + esc(g.title) + '</a></li>').join('') + '</ul></section>' : '') +
         '</div>' +
       '</div>';
 
-    // Quantity stepper.
-    const qty = $('#product-qty');
-    root.addEventListener('click', (e) => {
-      const b = e.target.closest('[data-qty-step]');
-      if (!b) return;
-      qty.value = Math.min(20, Math.max(1, (parseInt(qty.value, 10) || 1) + Number(b.dataset.qtyStep)));
-    });
-    qty.addEventListener('change', () => { qty.value = Math.min(20, Math.max(1, parseInt(qty.value, 10) || 1)); });
-
-    // Related products: same category first, then featured items.
+    // Related picks: same category first, then featured items.
     let related = GC.products.filter((x) => x.category === p.category && x.id !== p.id);
     if (related.length < 4) related = related.concat(GC.products.filter((x) => x.featured && x.id !== p.id && !related.includes(x)));
-    renderProducts($('#related-grid'), related.slice(0, 4), { listName: 'Related products' });
+    renderProducts($('#related-grid'), related.slice(0, 4), { listName: 'Related picks' });
     $('#related-section').hidden = false;
 
-    A.track('view_item', { currency: 'INR', value: p.price, items: [A.toItem(Object.assign({ categoryName: cat.name }, p))] });
+    // If the visitor arrived via a "Where to buy" button, bring that section into view.
+    if (window.location.hash === '#where-to-buy') {
+      setTimeout(() => { const w = $('#where-to-buy'); if (w) w.scrollIntoView({ block: 'start' }); }, 60);
+    }
+
+    A.track('view_item', { items: [A.toItem(Object.assign({}, p, { categoryName: cat.name }))] });
   };
 
   pages.contact = initContactForm;

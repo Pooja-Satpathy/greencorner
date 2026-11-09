@@ -109,7 +109,6 @@
   .product-card__body { padding: .8rem .8rem .9rem; }
   .product-card__title { font-size: .98rem; }
   .product-card__desc { font-size: .8rem; }
-  .price { font-size: 1.12rem; }
   .product-card__actions { grid-template-columns: 1fr; }
   .product-card__actions .btn { min-height: 40px; font-size: .84rem; padding: .45rem .6rem; }
   .product-card__quick { display: none; }
@@ -118,7 +117,7 @@
   .feature-grid { grid-template-columns: 1fr; }
   .article-grid, .tips-grid { grid-template-columns: 1fr; }
   .campaign-perks { grid-template-columns: 1fr; }
-  .coupon { flex-wrap: wrap; }
+  .season-tip { flex-wrap: wrap; }
   .newsletter { border-radius: var(--radius); }
   .newsletter-form .input-row { flex-direction: column; }
   .footer-grid { grid-template-columns: 1fr 1fr; gap: 2rem 1.25rem; }
@@ -127,7 +126,6 @@
   .shop-sort select { min-width: 0; flex: 1; }
   .form-grid { grid-template-columns: 1fr; }
   .quick-facts { grid-template-columns: 1fr; }
-  .buy-row .btn { min-width: 0; }
   .stats-row { gap: .6rem; }
   .stat { padding: .8rem; }
   .stat strong { font-size: 1.6rem; }
@@ -141,9 +139,14 @@
   .reminder { flex-wrap: wrap; }
   .reminder .btn { margin-left: 0; }
   .modal-dialog { padding: 1.5rem; }
-  .drawer-head, .drawer-body, .drawer-foot, .free-ship { padding-inline: 1rem; }
-  .cart-item { grid-template-columns: 64px 1fr auto; gap: .7rem; }
-  .cart-item img { width: 64px; height: 72px; }
+  .drawer-head, .drawer-body, .drawer-foot, .drawer-intro { padding-inline: 1rem; }
+  .list-item { grid-template-columns: 64px 1fr; gap: .7rem; }
+  .list-item img { width: 64px; height: 72px; }
+  .store-grid { grid-template-columns: 1fr 1fr; gap: .5rem; }
+  .store-link { padding: .75rem .8rem; }
+  .store-note { display: none; }
+  .store-cta { font-size: .76rem; align-items: flex-start; }
+  .where-to-buy { padding: 1.1rem; }
 }
 
 /* ---------- ≤ 420px ---------- */
