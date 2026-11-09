@@ -13,7 +13,7 @@
   'use strict';
 
   /** Paste your GA4 Measurement ID here, e.g. 'G-AB12CD34EF'. Leave empty to disable. */
-  var GA_MEASUREMENT_ID = '';
+  var GA_MEASUREMENT_ID = 'G-NFQHGKGYG6';
 
   /**
    * true = send events to GA4 DebugView (for testing only; GA4 may filter
