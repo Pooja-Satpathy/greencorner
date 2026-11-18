@@ -31,7 +31,9 @@
   .nav-link { width: 100%; padding: .9rem 1rem; font-size: 1.12rem; border-radius: var(--radius-sm); }
   .nav-mobile-extra { display: block; margin-top: auto; padding-top: 2rem; font-size: .88rem; color: var(--muted); }
   .nav-mobile-extra .btn { width: 100%; margin-bottom: 1rem; }
-  .nav-overlay { display: block; position: fixed; inset: 0; z-index: 205; background: rgba(22,39,28,.4); opacity: 0; visibility: hidden; transition: opacity .3s, visibility .3s; }
+  /* The header (z-index 100) holds the menu, so the dimming overlay must sit just below it,
+     otherwise it covers the menu and swallows every tap. */
+  .nav-overlay { display: block; position: fixed; inset: 0; z-index: 99; background: rgba(22,39,28,.4); opacity: 0; visibility: hidden; transition: opacity .3s, visibility .3s; }
   .nav-overlay.is-open { opacity: 1; visibility: visible; }
   .header-actions { margin-left: auto; }
   .nav-toggle.is-open { position: relative; z-index: 220; }
