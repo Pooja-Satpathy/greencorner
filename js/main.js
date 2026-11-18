@@ -150,7 +150,7 @@
     toggle && toggle.addEventListener('click', () => setNav(!nav.classList.contains('is-open')));
     overlay && overlay.addEventListener('click', () => setNav(false));
     nav && $$('a', nav).forEach((a) => a.addEventListener('click', () => setNav(false)));
-    window.addEventListener('resize', debounce(() => { if (window.innerWidth > 960) setNav(false); }, 150));
+    window.addEventListener('resize', debounce(() => { if (window.innerWidth > 1100) setNav(false); }, 150));
 
     // Header search panel.
     searchToggle && searchToggle.addEventListener('click', () => {
@@ -255,6 +255,17 @@
     if (errorEl) errorEl.textContent = message || '';
   }
 
+  /** The site has no server, so forms hand off to the visitor's email app, addressed to GreenCorner. */
+  const CONTACT_EMAIL = 'MRM2025005@iiita.ac.in';
+  function openEmail(subject, body) {
+    const a = document.createElement('a');
+    a.href = 'mailto:' + CONTACT_EMAIL + '?subject=' + encodeURIComponent(subject) + '&body=' + encodeURIComponent(body);
+    a.rel = 'noopener';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+  }
+
   /** Newsletter forms (footer band on every page). */
   function initNewsletter() {
     $$('.js-newsletter-form').forEach((form) => {
@@ -274,8 +285,8 @@
       form.addEventListener('submit', (e) => {
         e.preventDefault();
         if (!validate()) { input.focus(); return; }
-        // Demo only: no email is stored or sent. Connect a provider (Mailchimp, Brevo, etc.) here.
         A.track('newsletter_signup', { form_location: form.getAttribute('data-location') || PAGE, method: 'email' });
+        openEmail('Subscribe to GreenCorner plant tips', 'Hi GreenCorner,\r\n\r\nPlease add ' + input.value.trim() + ' to your monthly plant care tips.\r\n\r\nThank you!');
         row.hidden = true;
         const consent = $('.consent', form);
         if (consent) consent.hidden = true;
@@ -320,7 +331,11 @@
       if (invalid.length) { invalid[0].focus(); return; }
       const name = form.elements.name.value.trim().split(' ')[0];
       const topic = form.elements.topic.value;
-      // Demo only: nothing is transmitted. See README to connect Formspree / Google Forms.
+      const topicLabel = form.elements.topic.selectedOptions[0] ? form.elements.topic.selectedOptions[0].textContent.trim() : topic;
+      const phone = form.elements.phone ? form.elements.phone.value.trim() : '';
+      openEmail('GreenCorner enquiry: ' + topicLabel,
+        form.elements.message.value.trim() + '\r\n\r\n— ' + form.elements.name.value.trim() +
+        '\r\nEmail: ' + form.elements.email.value.trim() + (phone ? '\r\nPhone: ' + phone : ''));
       A.track('generate_lead', { form_name: 'contact', topic: topic });
       A.track('contact_form_submit', { topic: topic });
       const success = $('#contact-success');
